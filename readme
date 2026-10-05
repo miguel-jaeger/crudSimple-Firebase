@@ -1,0 +1,121 @@
+# CRUD de usuarios en Haskell con Cloud Firestore
+
+Aplicación de consola para practicar operaciones CRUD (Create, Read, Update y
+Delete) desde Haskell. La comunicación con Google Cloud Firestore se realiza
+mediante su API REST y las peticiones HTTP de `http-client`.
+
+## Objetivos
+
+- Construir y enviar peticiones HTTP desde Haskell.
+- Convertir datos entre tipos de Haskell y el formato JSON de Firestore con Aeson.
+- Implementar operaciones para crear, listar, actualizar y eliminar documentos.
+- Practicar el uso de tipos, funciones de E/S y un menú interactivo.
+
+## Requisitos
+
+- GHC y Cabal, instalados por ejemplo mediante [GHCup](https://www.haskell.org/ghcup/).
+- Un proyecto de Firebase con Cloud Firestore habilitado.
+- Reglas de seguridad de Firestore configuradas para el modo de acceso que se utilizará.
+
+Verifica las herramientas desde una terminal:
+
+```text
+ghc --version
+cabal --version
+```
+
+## Configuración de Firestore
+
+En `app/Main.hs`, la constante `firebaseURL` contiene el endpoint REST del
+proyecto y la colección usada por el programa:
+
+```haskell
+firebaseURL = "https://firestore.googleapis.com/v1/projects/ID_PROYECTO/databases/(default)/documents/usuario"
+```
+
+Reemplaza `ID_PROYECTO` por el ID de tu proyecto de Firebase y confirma que la
+colección `usuario` corresponde a la que deseas utilizar. Si cambias el nombre
+de la colección, actualiza también los textos del menú que la mencionen.
+
+### Autenticación y reglas de seguridad
+
+El código actual no adjunta un token de Firebase Authentication ni credenciales
+a sus peticiones. Por ello, Firestore evalúa las solicitudes como no autenticadas
+y las reglas de seguridad deben permitir explícitamente ese acceso para que el
+ejemplo funcione tal como está. No habilites lectura y escritura públicas en un
+proyecto real. Para un uso normal, implementa autenticación y restringe las
+reglas a los usuarios autorizados.
+
+El archivo `firebase-service-account.json`, si está presente en el proyecto, no
+es leído por este programa. No lo publiques ni lo agregues a un repositorio:
+contiene credenciales privadas. Una aplicación real debe implementar un flujo
+de autenticación apropiado y proteger sus credenciales.
+
+## Modelo de datos
+
+El programa representa cada usuario con los campos `nombre`, `apellido`,
+`correo`, `contrasena`, `rol` e `idPersona`. Firestore almacena cada campo con
+un tipo explícito; por ejemplo, una parte del documento se ve así:
+
+```json
+{
+  "fields": {
+    "nombre": { "stringValue": "Ana" },
+    "apellido": { "stringValue": "Perez" },
+    "correo": { "stringValue": "ana@example.com" },
+    "contrasena": { "stringValue": "valor-de-ejemplo" },
+    "rol": { "stringValue": "USER" },
+    "idPersona": { "stringValue": "A123" }
+  }
+}
+```
+
+Las llaves deben coincidir con los campos definidos en el tipo `Campos` de
+`app/Main.hs`. El identificador ingresado se usa tanto como el valor del campo
+`idPersona` como el ID del documento de Firestore.
+
+> **Seguridad:** este ejemplo guarda la contraseña como texto en el documento.
+> No almacenes contraseñas de usuarios de esa manera en una aplicación real;
+> utiliza Firebase Authentication para gestionar las credenciales.
+
+## Compilar y ejecutar
+
+Desde la carpeta del proyecto:
+
+```text
+cabal build
+cabal run
+```
+
+El menú permite elegir una operación:
+
+1. **Agregar usuario:** solicita los datos y envía un `POST` con el ID del documento.
+2. **Listar usuarios:** envía un `GET`, interpreta la respuesta JSON e imprime los documentos compatibles con el modelo.
+3. **Actualizar usuario:** solicita un ID y nuevos valores, y envía un `PATCH` al documento correspondiente.
+4. **Eliminar usuario:** solicita un ID y envía un `DELETE` para borrar ese documento.
+5. **Salir:** termina el menú.
+
+## Cómo se organiza el código
+
+- `firebaseURL` define el endpoint REST de la colección.
+- `StringValue`, `Campos` y `DocumentoFirestore` modelan los datos enviados a Firestore. Las instancias `ToJSON` usan `Generic` y Aeson para serializarlos.
+- `DocumentoRespuesta` y `ListaDocumentos` modelan partes de la respuesta. Las instancias `FromJSON` convierten el JSON recibido a esos tipos; los campos opcionales se representan con `Maybe`.
+- `enviarPeticion` prepara una solicitud HTTP con su método y cuerpo. TLS protege el transporte de la conexión.
+- `agregarUsuario`, `listarUsuarios`, `actualizarUsuario` y `eliminarUsuario` implementan las cuatro operaciones CRUD.
+- `ejecutarMenu` presenta las opciones y vuelve a invocarse después de cada operación.
+
+## Limitaciones conocidas
+
+- `enviarPeticion` no comprueba explícitamente el código HTTP y no convierte los errores de red en mensajes amigables. El programa tampoco captura las excepciones de las peticiones. Por eso, un mensaje de éxito no debe tratarse como confirmación suficiente de que Firestore guardó el cambio.
+- El modelo de lectura exige que estén presentes los seis campos de usuario. Una respuesta con campos faltantes o tipos distintos no se convierte a `Campos`.
+- El ID del proyecto está escrito directamente en el código; para distribuir la aplicación conviene cargar la configuración desde un mecanismo adecuado y no guardar secretos en el código fuente.
+- El menú y la URL asumen la colección `usuario` y el formato indicado en esta guía.
+
+## Ideas para extender el ejercicio
+
+1. Manejar excepciones y mostrar errores HTTP con su código y mensaje.
+2. Incorporar autenticación segura y comprobar que las reglas de Firestore limiten correctamente cada operación.
+3. Validar entradas y codificar correctamente el ID del documento en la URL.
+4. Hacer que los campos opcionales o ausentes se gestionen de forma explícita.
+5. Separar modelos, acceso HTTP y menú en módulos distintos.
+6. Agregar pruebas para la conversión JSON y para la construcción de las URL.

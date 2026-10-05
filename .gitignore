@@ -1,0 +1,13 @@
+# Firebase service-account credentials must never be committed.
+firebase-service-account*.json
+
+# Cabal/GHC build products and local configuration.
+dist-newstyle/
+cabal.project.local
+.ghc.environment.*
+*.hi
+*.o
+
+# Common operating-system files.
+.DS_Store
+Thumbs.db
